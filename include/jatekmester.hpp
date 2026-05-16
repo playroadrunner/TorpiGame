@@ -4,6 +4,8 @@
 #include "widgets.hpp"
 #include "board_widget.hpp"
 #include "button.hpp"
+#include "text_widget.hpp"
+#include "list.hpp"
 #include <vector>
 #include <string>
 
@@ -29,6 +31,13 @@ class JatekMester {
     BoardWidget* _player_board;
     BoardWidget* _enemy_board;
     Button* _action_btn;
+    TextWidget* _status_text;
+    TextWidget* _player_label;
+    TextWidget* _enemy_label;
+    TextWidget* _dir_text;
+    TextWidget* _score_text;
+    List* _shot_type_list;
+    TextWidget* _shot_label;
     
     GameState _state;
     std::string _status_msg;
@@ -49,6 +58,7 @@ class JatekMester {
     void enemy_shoot();
     void update_sunk_ships(std::vector<Ship>& ships, BoardWidget* board);
     bool check_win(const std::vector<Ship>& ships) const;
+    void update_score();
 
 public:
     JatekMester(int width, int height);

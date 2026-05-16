@@ -1,0 +1,8 @@
+*.o
+*.obj
+program
+*.pdf
+*.zip
+lib/
+others/
+assets/*.csv
