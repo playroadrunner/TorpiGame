@@ -1,8 +1,8 @@
 #include "jatekmester.hpp"
 #include "graphics.hpp"
+#include <iostream>
 #include <cstdlib>
 #include <ctime>
-#include <iostream>
 #include <map>
 
 using namespace genv;
@@ -10,11 +10,8 @@ using namespace genv;
 JatekMester::JatekMester(int width, int height) : _width(width), _height(height) {
     std::srand(std::time(nullptr));
     
-    _cross_ammo = 3;
-    _carpet_ammo = 2;
-    _ships_to_place = {4, 3, 3, 2, 2, 2, 1, 1, 1, 1};
-    _horizontal_placement = true;
     _state = STATE_MAIN_MENU;
+    _pvp_mode = false;
     _status_msg = "";
     
     int board_size = 300;
@@ -26,65 +23,153 @@ JatekMester::JatekMester(int width, int height) : _width(width), _height(height)
     int e_x = _width - board_size - 50;
     int e_y = 100;
     
-    _player_board = new BoardWidget(p_x, p_y, cell_size, 10, 10, false, [this](int r, int c) { this->on_player_board_click(r, c); });
-    _enemy_board = new BoardWidget(e_x, e_y, cell_size, 10, 10, true, [this](int r, int c) { this->on_enemy_board_click(r, c); });
+    _p1_board = new BoardWidget(p_x, p_y, cell_size, 10, 10, false, [this](int r, int c) { this->on_board_click(r, c, true); });
+    _p2_board = new BoardWidget(e_x, e_y, cell_size, 10, 10, true, [this](int r, int c) { this->on_board_click(r, c, false); });
     
     _action_btn = new Button(50, _height - 60, 150, 40, "Forgat", [this]() {
-        if (_state == STATE_PLACEMENT) {
+        if (_state == STATE_P1_PLACEMENT || _state == STATE_P2_PLACEMENT) {
             _horizontal_placement = !_horizontal_placement;
         }
     });
     
-    _start_btn = new Button(_width / 2 - 100, _height / 2, 200, 60, "Jatek Inditasa", [this]() {
-        _state = STATE_PLACEMENT;
-        _status_msg = "Helyezd el a hajoikat! Kattints a tabladra.";
-        update_ships_left_text();
+    _start_bot_btn = new Button(_width / 2 - 100, _height / 2 - 40, 200, 50, "Jatek Bot Ellen", [this]() {
+        this->start_game(false);
+    });
+    _start_pvp_btn = new Button(_width / 2 - 100, _height / 2 + 30, 200, 50, "Jatek Ember Ellen", [this]() {
+        this->start_game(true);
     });
     
-    _player_label = new TextWidget(50, 70, "Sajat flotta", 180, 180, 200);
-    _enemy_label = new TextWidget(_width - 350, 70, "Ellenseges flotta", 180, 180, 200);
+    _back_to_menu_btn = new Button(_width / 2 - 100, _height - 100, 200, 50, "Vissza a Fomenube", [this]() {
+        _state = STATE_MAIN_MENU;
+        _status_msg = "";
+        setup_state_widgets();
+    });
+    
+    _pass_turn_btn = new Button(_width / 2 - 100, _height / 2 + 50, 200, 50, "Tovabb", [this]() {
+        _state = _next_state;
+        if (_state == STATE_P1_TURN) {
+            _p1_board->set_hidden_ships(false);
+            _p2_board->set_hidden_ships(true);
+        } else if (_state == STATE_P2_TURN) {
+            _p1_board->set_hidden_ships(true);
+            _p2_board->set_hidden_ships(false);
+        } else if (_state == STATE_P2_PLACEMENT) {
+            _p1_board->set_hidden_ships(true); // hide P1's ships while P2 places
+            _p2_board->set_hidden_ships(false);
+        }
+        setup_state_widgets();
+        update_shot_list();
+    });
+    
+    _p1_label = new TextWidget(50, 70, "P1 flotta", 180, 180, 200);
+    _p2_label = new TextWidget(_width - 350, 70, "P2 flotta", 180, 180, 200);
     _status_text = new TextWidget(50, 20, "", 255, 255, 0);
     _dir_text = new TextWidget(220, _height - 50, "Irany: Vizszintes", 200, 200, 200);
-    _score_text = new TextWidget(_width / 2 - 60, 70, "Sajat: 0 - Ellenseg: 0", 255, 255, 255);
+    _score_text = new TextWidget(_width / 2 - 100, _height - 40, "P1: 0 - P2: 0", 255, 255, 255);
     _ships_left_text = new TextWidget(50, 40, "", 200, 255, 200);
     
-    _shot_type_list = new List(_width / 2 - 75, _height - 200, 150, 150, {});
-    _shot_label = new TextWidget(_width / 2 - 75, _height - 230, "Loves tipus:", 200, 200, 200);
-    update_shot_list();
+    _shot_type_list = new List(_width / 2 - 75, _height - 220, 150, 150, {});
+    _shot_label = new TextWidget(_width / 2 - 75, _height - 240, "Loves tipus:", 200, 200, 200);
     
-    _menu_widgets.push_back(new TextWidget(_width / 2 - 130, _height / 3, "TORPEDO JATEK", 255, 100, 100));
-    _menu_widgets.push_back(_start_btn);
-    
-    _placement_widgets.push_back(_player_board);
-    _placement_widgets.push_back(_action_btn);
-    _placement_widgets.push_back(_dir_text);
-    _placement_widgets.push_back(_ships_left_text);
-    
-    _game_widgets.push_back(_player_board);
-    _game_widgets.push_back(_enemy_board);
-    _game_widgets.push_back(_player_label);
-    _game_widgets.push_back(_enemy_label);
-    _game_widgets.push_back(_score_text);
-    _game_widgets.push_back(_shot_type_list);
-    _game_widgets.push_back(_shot_label);
-    
-    _all_widgets.insert(_all_widgets.end(), _menu_widgets.begin(), _menu_widgets.end());
-    _all_widgets.insert(_all_widgets.end(), _placement_widgets.begin(), _placement_widgets.end());
-    _all_widgets.insert(_all_widgets.end(), _game_widgets.begin(), _game_widgets.end());
+    _all_widgets.push_back(_p1_board);
+    _all_widgets.push_back(_p2_board);
+    _all_widgets.push_back(_action_btn);
+    _all_widgets.push_back(_start_bot_btn);
+    _all_widgets.push_back(_start_pvp_btn);
+    _all_widgets.push_back(_back_to_menu_btn);
+    _all_widgets.push_back(_pass_turn_btn);
+    _all_widgets.push_back(_p1_label);
+    _all_widgets.push_back(_p2_label);
     _all_widgets.push_back(_status_text);
+    _all_widgets.push_back(_dir_text);
+    _all_widgets.push_back(_score_text);
+    _all_widgets.push_back(_ships_left_text);
+    _all_widgets.push_back(_shot_type_list);
+    _all_widgets.push_back(_shot_label);
     
-    place_enemy_ships();
+    setup_state_widgets();
 }
 
 JatekMester::~JatekMester() {
     for (Widget * w : _all_widgets) delete w;
 }
 
+void JatekMester::start_game(bool pvp) {
+    _pvp_mode = pvp;
+    _p1_cross_ammo = 3;
+    _p1_carpet_ammo = 2;
+    _p2_cross_ammo = 3;
+    _p2_carpet_ammo = 2;
+    _p1_ships.clear();
+    _p2_ships.clear();
+    _p1_board->reset();
+    _p2_board->reset();
+    
+    _p1_board->set_hidden_ships(false);
+    _p2_board->set_hidden_ships(true);
+    
+    _ships_to_place = {4, 3, 3, 2, 2, 2, 1, 1, 1, 1};
+    _horizontal_placement = true;
+    _state = STATE_P1_PLACEMENT;
+    _status_msg = "P1: Helyezd el a hajoikat! Kattints a bal oldali tabladra.";
+    
+    if (!_pvp_mode) {
+        place_enemy_ships();
+    }
+    
+    update_ships_left_text();
+    update_shot_list();
+    setup_state_widgets();
+}
+
+void JatekMester::setup_state_widgets() {
+    _menu_widgets.clear();
+    _game_widgets.clear();
+    _placement_widgets.clear();
+    
+    if (_state == STATE_MAIN_MENU) {
+        _menu_widgets.push_back(_start_bot_btn);
+        _menu_widgets.push_back(_start_pvp_btn);
+    } else if (_state == STATE_P1_PLACEMENT) {
+        _placement_widgets.push_back(_p1_board);
+        _placement_widgets.push_back(_action_btn);
+        _placement_widgets.push_back(_dir_text);
+        _placement_widgets.push_back(_ships_left_text);
+        _placement_widgets.push_back(_p1_label);
+    } else if (_state == STATE_P2_PLACEMENT) {
+        _placement_widgets.push_back(_p2_board); // P2 places on right board
+        _placement_widgets.push_back(_action_btn);
+        _placement_widgets.push_back(_dir_text);
+        _placement_widgets.push_back(_ships_left_text);
+        _placement_widgets.push_back(_p2_label);
+    } else if (_state == STATE_PASS_TURN) {
+        _game_widgets.push_back(_pass_turn_btn);
+    } else {
+        // Game active or over
+        _game_widgets.push_back(_p1_board);
+        _game_widgets.push_back(_p2_board);
+        _game_widgets.push_back(_p1_label);
+        _game_widgets.push_back(_p2_label);
+        _game_widgets.push_back(_score_text);
+        
+        if (_state == STATE_P1_TURN || _state == STATE_P2_TURN) {
+            _game_widgets.push_back(_shot_type_list);
+            _game_widgets.push_back(_shot_label);
+        }
+        if (_state == STATE_GAME_OVER) {
+            _game_widgets.push_back(_back_to_menu_btn);
+        }
+    }
+}
+
 void JatekMester::update_shot_list() {
     std::vector<std::string> shots;
+    int cross = (_state == STATE_P2_TURN) ? _p2_cross_ammo : _p1_cross_ammo;
+    int carpet = (_state == STATE_P2_TURN) ? _p2_carpet_ammo : _p1_carpet_ammo;
+    
     shots.push_back("Normal loves (vegtelen)");
-    shots.push_back("Kereszt loves (" + std::to_string(_cross_ammo) + " db)");
-    shots.push_back("Szonyegbomba (" + std::to_string(_carpet_ammo) + " db)");
+    shots.push_back("Kereszt loves (" + std::to_string(cross) + " db)");
+    shots.push_back("Szonyegbomba (" + std::to_string(carpet) + " db)");
     _shot_type_list->set_items(shots);
 }
 
@@ -107,241 +192,237 @@ void JatekMester::update_ships_left_text() {
     _ships_left_text->set_text(text);
 }
 
-bool JatekMester::can_place_ship(const std::vector<Ship> &ships, int r, int c,
-                                 int length, bool horizontal) const {
-  if (horizontal) {
-    if (c + length > 10)
-      return false;
-  } else {
-    if (r + length > 10)
-      return false;
-  }
-
-  // Check overlap and adjacency (1 cell margin)
-  for (int i = -1; i <= length; ++i) {
-    for (int j = -1; j <= 1; ++j) {
-      int check_r = horizontal ? r + j : r + i;
-      int check_c = horizontal ? c + i : c + j;
-
-      if (check_r >= 0 && check_r < 10 && check_c >= 0 && check_c < 10) {
-        // if any existing ship occupies this
-        for (const auto &s : ships) {
-          for (int k = 0; k < s.length; ++k) {
-            int sr = s.horizontal ? s.r : s.r + k;
-            int sc = s.horizontal ? s.c + k : s.c;
-            if (check_r == sr && check_c == sc)
-              return false;
-          }
-        }
-      }
+bool JatekMester::can_place_ship(const std::vector<Ship> &ships, int r, int c, int length, bool horizontal) const {
+    if (horizontal) {
+        if (c + length > 10) return false;
+    } else {
+        if (r + length > 10) return false;
     }
-  }
-  return true;
+    for (int i = -1; i <= length; ++i) {
+        for (int j = -1; j <= 1; ++j) {
+            int check_r = horizontal ? r + j : r + i;
+            int check_c = horizontal ? c + i : c + j;
+            if (check_r >= 0 && check_r < 10 && check_c >= 0 && check_c < 10) {
+                for (const auto& s : ships) {
+                    for (int k = 0; k < s.length; ++k) {
+                        int sr = s.horizontal ? s.r : s.r + k;
+                        int sc = s.horizontal ? s.c + k : s.c;
+                        if (check_r == sr && check_c == sc) return false;
+                    }
+                }
+            }
+        }
+    }
+    return true;
 }
 
-void JatekMester::add_ship(std::vector<Ship> &ships, BoardWidget *board, int r,
-                           int c, int length, bool horizontal) {
-  ships.push_back({r, c, length, horizontal, 0, false});
-  for (int i = 0; i < length; ++i) {
-    if (horizontal)
-      board->set_cell(r, c + i, SHIP);
-    else
-      board->set_cell(r + i, c, SHIP);
-  }
+void JatekMester::add_ship(std::vector<Ship> &ships, BoardWidget *board, int r, int c, int length, bool horizontal) {
+    ships.push_back({r, c, length, horizontal, 0, false});
+    for (int i = 0; i < length; ++i) {
+        if (horizontal) board->set_cell(r, c + i, SHIP);
+        else board->set_cell(r + i, c, SHIP);
+    }
 }
 
 void JatekMester::place_enemy_ships() {
-  std::vector<int> ships_to_place = {4, 3, 3, 2, 2, 2, 1, 1, 1, 1};
-  for (int len : ships_to_place) {
-    bool placed = false;
-    while (!placed) {
-      int r = std::rand() % 10;
-      int c = std::rand() % 10;
-      bool horiz = (std::rand() % 2) == 0;
-
-      if (can_place_ship(_enemy_ships, r, c, len, horiz)) {
-        add_ship(_enemy_ships, _enemy_board, r, c, len, horiz);
-        placed = true;
-      }
+    std::vector<int> ships_to_place = {4, 3, 3, 2, 2, 2, 1, 1, 1, 1};
+    for (int len : ships_to_place) {
+        bool placed = false;
+        while (!placed) {
+            int r = std::rand() % 10;
+            int c = std::rand() % 10;
+            bool horiz = (std::rand() % 2) == 0;
+            if (can_place_ship(_p2_ships, r, c, len, horiz)) {
+                add_ship(_p2_ships, _p2_board, r, c, len, horiz);
+                placed = true;
+            }
+        }
     }
-  }
 }
 
-void JatekMester::on_player_board_click(int r, int c) {
-  if (_state == STATE_PLACEMENT) {
-    if (_ships_to_place.empty())
-      return;
-
-    int len = _ships_to_place.front();
-    if (can_place_ship(_player_ships, r, c, len, _horizontal_placement)) {
-      add_ship(_player_ships, _player_board, r, c, len, _horizontal_placement);
-      _ships_to_place.erase(_ships_to_place.begin());
-
-      if (_ships_to_place.empty()) {
-        _state = STATE_PLAYER_TURN;
-        _status_msg = "Te jossz! Kattints az ellenseg tablajara.";
-      } else {
-        update_ships_left_text();
-      }
-    }
-  }
-}
-
-void JatekMester::on_enemy_board_click(int r, int c) {
-    if (_state == STATE_PLAYER_TURN) {
+void JatekMester::on_board_click(int r, int c, bool is_p1_board) {
+    if (_state == STATE_P1_PLACEMENT && is_p1_board) {
+        if (_ships_to_place.empty()) return;
+        int len = _ships_to_place.front();
+        if (can_place_ship(_p1_ships, r, c, len, _horizontal_placement)) {
+            add_ship(_p1_ships, _p1_board, r, c, len, _horizontal_placement);
+            _ships_to_place.erase(_ships_to_place.begin());
+            update_ships_left_text();
+            if (_ships_to_place.empty()) {
+                if (_pvp_mode) {
+                    _state = STATE_PASS_TURN;
+                    _next_state = STATE_P2_PLACEMENT;
+                    _status_msg = "A gepet at kell adni P2-nek. Kattints a tovabb gombra.";
+                    _ships_to_place = {4, 3, 3, 2, 2, 2, 1, 1, 1, 1};
+                    update_ships_left_text();
+                } else {
+                    _state = STATE_P1_TURN;
+                    _status_msg = "P1 jon! Kattints az ellenseg tablajara.";
+                }
+                setup_state_widgets();
+            }
+        }
+    } else if (_state == STATE_P2_PLACEMENT && !is_p1_board) {
+        if (_ships_to_place.empty()) return;
+        int len = _ships_to_place.front();
+        if (can_place_ship(_p2_ships, r, c, len, _horizontal_placement)) {
+            add_ship(_p2_ships, _p2_board, r, c, len, _horizontal_placement);
+            _ships_to_place.erase(_ships_to_place.begin());
+            update_ships_left_text();
+            if (_ships_to_place.empty()) {
+                _state = STATE_PASS_TURN;
+                _next_state = STATE_P1_TURN;
+                _status_msg = "P2 kesz. Add at P1-nek.";
+                setup_state_widgets();
+            }
+        }
+    } else if (_state == STATE_P1_TURN && !is_p1_board) {
         int shot_type = _shot_type_list->get_selected_index();
-        if (shot_type == -1) shot_type = 0; // Default normal
-        
-        if (shot_type == 1 && _cross_ammo <= 0) {
-            _status_msg = "Nincs tobb Kereszt loves!";
-            return;
-        }
-        if (shot_type == 2 && _carpet_ammo <= 0) {
-            _status_msg = "Nincs tobb Szonyegbomba!";
-            return;
-        }
+        if (shot_type == -1) shot_type = 0; 
+        if (shot_type == 1 && _p1_cross_ammo <= 0) { _status_msg = "Nincs tobb Kereszt loves!"; return; }
+        if (shot_type == 2 && _p1_carpet_ammo <= 0) { _status_msg = "Nincs tobb Szonyegbomba!"; return; }
         
         std::vector<std::pair<int, int>> targets;
-        
-        if (shot_type == 0) { // Normal
-            targets.push_back({r, c});
-        } else if (shot_type == 1) { // Kereszt
-            _cross_ammo--;
-            for (int i = 0; i < 10; ++i) {
-                targets.push_back({r, i});
-                targets.push_back({i, c});
-            }
-        } else if (shot_type == 2) { // Szonyegbomba
-            _carpet_ammo--;
-            for (int i = -1; i <= 1; ++i) {
-                for (int j = -1; j <= 1; ++j) {
-                    targets.push_back({r + i, c + j});
-                }
-            }
-        }
+        if (shot_type == 0) { targets.push_back({r, c}); }
+        else if (shot_type == 1) { _p1_cross_ammo--; for (int i=0; i<10; ++i) { targets.push_back({r, i}); targets.push_back({i, c}); } }
+        else if (shot_type == 2) { _p1_carpet_ammo--; for (int i=-1; i<=1; ++i) for (int j=-1; j<=1; ++j) targets.push_back({r+i, c+j}); }
         
         update_shot_list();
-        
         bool any_hit = false;
-        
         for (auto p : targets) {
-            int tr = p.first;
-            int tc = p.second;
-            
-            CellState state = _enemy_board->get_cell(tr, tc);
-            if (state == EMPTY || state == SHIP) {
-                if (state == SHIP) {
-                    _enemy_board->set_cell(tr, tc, HIT);
-                    any_hit = true;
-                } else {
-                    _enemy_board->set_cell(tr, tc, MISS);
-                }
+            int tr = p.first; int tc = p.second;
+            CellState st = _p2_board->get_cell(tr, tc);
+            if (st == EMPTY || st == SHIP) {
+                if (st == SHIP) { _p2_board->set_cell(tr, tc, HIT); any_hit = true; }
+                else { _p2_board->set_cell(tr, tc, MISS); }
             }
         }
         
-        update_sunk_ships(_enemy_ships, _enemy_board);
-        if (check_win(_enemy_ships)) {
-            _state = STATE_GAME_OVER;
-            _status_msg = "GYOZTEM!";
+        update_sunk_ships(_p2_ships, _p2_board);
+        if (check_win(_p2_ships)) {
+            _state = STATE_GAME_OVER; _status_msg = "P1 GYOZOTT!"; setup_state_widgets();
         } else {
             if (any_hit) {
-                _status_msg = "Talalat! Te jossz ujra.";
+                _status_msg = "Talalat! P1 jossz ujra.";
             } else {
-                _state = STATE_ENEMY_TURN;
-                _status_msg = "Melle. Az ellenseg jon.";
+                if (_pvp_mode) {
+                    _state = STATE_PASS_TURN; _next_state = STATE_P2_TURN; _status_msg = "Melle. Add at P2-nek."; setup_state_widgets();
+                } else {
+                    _state = STATE_P2_TURN; _status_msg = "Melle. A bot jon."; setup_state_widgets();
+                }
+            }
+        }
+    } else if (_state == STATE_P2_TURN && is_p1_board) {
+        int shot_type = _shot_type_list->get_selected_index();
+        if (shot_type == -1) shot_type = 0; 
+        if (shot_type == 1 && _p2_cross_ammo <= 0) { _status_msg = "Nincs tobb Kereszt loves!"; return; }
+        if (shot_type == 2 && _p2_carpet_ammo <= 0) { _status_msg = "Nincs tobb Szonyegbomba!"; return; }
+        
+        std::vector<std::pair<int, int>> targets;
+        if (shot_type == 0) { targets.push_back({r, c}); }
+        else if (shot_type == 1) { _p2_cross_ammo--; for (int i=0; i<10; ++i) { targets.push_back({r, i}); targets.push_back({i, c}); } }
+        else if (shot_type == 2) { _p2_carpet_ammo--; for (int i=-1; i<=1; ++i) for (int j=-1; j<=1; ++j) targets.push_back({r+i, c+j}); }
+        
+        update_shot_list();
+        bool any_hit = false;
+        for (auto p : targets) {
+            int tr = p.first; int tc = p.second;
+            CellState st = _p1_board->get_cell(tr, tc);
+            if (st == EMPTY || st == SHIP) {
+                if (st == SHIP) { _p1_board->set_cell(tr, tc, HIT); any_hit = true; }
+                else { _p1_board->set_cell(tr, tc, MISS); }
+            }
+        }
+        
+        update_sunk_ships(_p1_ships, _p1_board);
+        if (check_win(_p1_ships)) {
+            _state = STATE_GAME_OVER; _status_msg = "P2 GYOZOTT!"; setup_state_widgets();
+        } else {
+            if (any_hit) {
+                _status_msg = "Talalat! P2 jossz ujra.";
+            } else {
+                _state = STATE_PASS_TURN; _next_state = STATE_P1_TURN; _status_msg = "Melle. Add at P1-nek."; setup_state_widgets();
             }
         }
     }
 }
 
-void JatekMester::update_sunk_ships(std::vector<Ship> &ships,
-                                    BoardWidget *board) {
-  for (auto &s : ships) {
-    if (!s.sunk) {
-      bool all_hit = true;
-      for (int i = 0; i < s.length; ++i) {
-        int sr = s.horizontal ? s.r : s.r + i;
-        int sc = s.horizontal ? s.c + i : s.c;
-        if (board->get_cell(sr, sc) != HIT) {
-          all_hit = false;
-          break;
+void JatekMester::update_sunk_ships(std::vector<Ship> &ships, BoardWidget *board) {
+    for (auto &s : ships) {
+        if (!s.sunk) {
+            bool all_hit = true;
+            for (int i = 0; i < s.length; ++i) {
+                int sr = s.horizontal ? s.r : s.r + i;
+                int sc = s.horizontal ? s.c + i : s.c;
+                if (board->get_cell(sr, sc) != HIT) { all_hit = false; break; }
+            }
+            if (all_hit) {
+                s.sunk = true;
+                for (int i = 0; i < s.length; ++i) {
+                    int sr = s.horizontal ? s.r : s.r + i;
+                    int sc = s.horizontal ? s.c + i : s.c;
+                    board->set_cell(sr, sc, SUNK);
+                }
+            }
         }
-      }
-      if (all_hit) {
-        s.sunk = true;
-        for (int i = 0; i < s.length; ++i) {
-          int sr = s.horizontal ? s.r : s.r + i;
-          int sc = s.horizontal ? s.c + i : s.c;
-          board->set_cell(sr, sc, SUNK);
-        }
-      }
     }
-  }
 }
 
 bool JatekMester::check_win(const std::vector<Ship> &ships) const {
-  for (const auto &s : ships) {
-    if (!s.sunk)
-      return false;
-  }
-  return true;
+    for (const auto &s : ships) {
+        if (!s.sunk) return false;
+    }
+    return true;
 }
 
-void JatekMester::enemy_shoot() {
-  // Simple random shooting
-  bool shot = false;
-  while (!shot) {
-    int r = std::rand() % 10;
-    int c = std::rand() % 10;
-    CellState state = _player_board->get_cell(r, c);
-
-    if (state == EMPTY || state == SHIP) {
-      if (state == SHIP) {
-        _player_board->set_cell(r, c, HIT);
-        update_sunk_ships(_player_ships, _player_board);
-        if (check_win(_player_ships)) {
-          _state = STATE_GAME_OVER;
-          _status_msg = "VESZTETTEL!";
+void JatekMester::bot_shoot() {
+    bool shot = false;
+    while (!shot) {
+        int r = std::rand() % 10;
+        int c = std::rand() % 10;
+        CellState state = _p1_board->get_cell(r, c);
+        
+        if (state == EMPTY || state == SHIP) {
+            if (state == SHIP) {
+                _p1_board->set_cell(r, c, HIT);
+                update_sunk_ships(_p1_ships, _p1_board);
+                if (check_win(_p1_ships)) {
+                    _state = STATE_GAME_OVER;
+                    _status_msg = "BOT GYOZOTT!";
+                    setup_state_widgets();
+                }
+            } else {
+                _p1_board->set_cell(r, c, MISS);
+                if (_state != STATE_GAME_OVER) {
+                    _state = STATE_P1_TURN;
+                    _status_msg = "Te jossz! Kattints az ellenseg tablajara.";
+                    setup_state_widgets();
+                }
+            }
+            shot = true;
         }
-        // Enemy gets another turn
-      } else {
-        _player_board->set_cell(r, c, MISS);
-        if (_state != STATE_GAME_OVER) {
-          _state = STATE_PLAYER_TURN;
-          _status_msg = "Te jossz! Kattints az ellenseg tablajara.";
-        }
-      }
-      shot = true;
     }
-  }
 }
 
 void JatekMester::update_score() {
-  int player_sunk = 0;
-  for (const auto &s : _enemy_ships)
-    if (s.sunk)
-      player_sunk++;
-  int enemy_sunk = 0;
-  for (const auto &s : _player_ships)
-    if (s.sunk)
-      enemy_sunk++;
-  _score_text->set_text("Sajat pont: " + std::to_string(player_sunk) +
-                        " - Ellenseg: " + std::to_string(enemy_sunk));
+    int p1_sunk = 0;
+    for (const auto &s : _p2_ships) if (s.sunk) p1_sunk++;
+    int p2_sunk = 0;
+    for (const auto &s : _p1_ships) if (s.sunk) p2_sunk++;
+    _score_text->set_text("P1 pont: " + std::to_string(p1_sunk) + " - P2 pont: " + std::to_string(p2_sunk));
 }
 
 void JatekMester::run() {
     event ev;
     int focus = -1;
-    
-    // Very simple timer for enemy turn
     int enemy_delay = 0;
 
     while (gin >> ev && ev.keycode != key_escape) {
         if (ev.type == ev_timer) {
-            if (_state == STATE_ENEMY_TURN) {
+            if (_state == STATE_P2_TURN && !_pvp_mode) {
                 enemy_delay++;
-                if (enemy_delay > 20) { // arbitrary delay
-                    enemy_shoot();
+                if (enemy_delay > 20) { 
+                    bot_shoot();
                     enemy_delay = 0;
                 }
             }
@@ -349,7 +430,8 @@ void JatekMester::run() {
         
         std::vector<Widget*>* active_widgets = &_all_widgets;
         if (_state == STATE_MAIN_MENU) active_widgets = &_menu_widgets;
-        else if (_state == STATE_PLACEMENT) active_widgets = &_placement_widgets;
+        else if (_state == STATE_P1_PLACEMENT || _state == STATE_P2_PLACEMENT) active_widgets = &_placement_widgets;
+        else if (_state == STATE_PASS_TURN) active_widgets = &_game_widgets; 
         else active_widgets = &_game_widgets;
     
         if (ev.type == ev_mouse && ev.button == btn_left) {
@@ -361,8 +443,8 @@ void JatekMester::run() {
             }
         }
         
-        if (ev.type == ev_mouse && ev.button == btn_right && _state == STATE_PLACEMENT) {
-            _horizontal_placement = !_horizontal_placement; // right click to rotate
+        if (ev.type == ev_mouse && ev.button == btn_right && (_state == STATE_P1_PLACEMENT || _state == STATE_P2_PLACEMENT)) {
+            _horizontal_placement = !_horizontal_placement;
         }
         
         if (focus != -1 && focus < (int)active_widgets->size()) {
@@ -372,14 +454,20 @@ void JatekMester::run() {
         gout << color(20, 20, 25) << move_to(0, 0) << box(_width, _height);
         
         _status_text->set_text(_status_msg);
-        _status_text->draw(); // status text is always drawn except maybe main menu
+        _status_text->draw();
         
-        if (_state == STATE_PLACEMENT) {
+        if (_state == STATE_MAIN_MENU) {
+            gout << move_to(_width / 2 - 130, _height / 3 - 30) << color(255, 100, 100) << text("TORPEDO JATEK");
+        } else if (_state == STATE_PASS_TURN) {
+            gout << move_to(_width / 2 - 150, _height / 3) << color(255, 200, 100) << text("A gepet add at a masik jatekosnak!");
+        }
+        
+        if (_state == STATE_P1_PLACEMENT || _state == STATE_P2_PLACEMENT) {
             std::string dir = _horizontal_placement ? "Vizszintes" : "Fuggoleges";
             _dir_text->set_text("Irany (Jobb klikk): " + dir);
         }
 
-        if (_state == STATE_PLAYER_TURN || _state == STATE_ENEMY_TURN || _state == STATE_GAME_OVER) {
+        if (_state == STATE_P1_TURN || _state == STATE_P2_TURN || _state == STATE_GAME_OVER || _state == STATE_P2_TURN) {
             update_score();
         }
 

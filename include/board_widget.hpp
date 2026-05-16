@@ -23,6 +23,7 @@ public:
     void set_cell(int r, int c, CellState state);
     CellState get_cell(int r, int c) const;
     void reset();
+    void set_hidden_ships(bool hidden) { _hidden_ships = hidden; }
 };
 
 #endif
