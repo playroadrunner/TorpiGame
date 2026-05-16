@@ -13,39 +13,43 @@ JatekMester::JatekMester(int width, int height) : _width(width), _height(height)
     _state = STATE_MAIN_MENU;
     _pvp_mode = false;
     _status_msg = "";
+
+    // ── Layout constants ───────────────────────────────────────────
+    // Header bar: y 0..50  (title / status)
+    // Sub-header: y 52..75 (labels, ships-left)
+    // Score bar:  y 76..99
+    // Board area: y 110..410  (300px boards)
+    // Bottom bar: y 420..600  (shot list, buttons)
+
+    const int BOARD_Y    = 110;
+    const int BOARD_SIZE = 300;
+    const int CELL       = BOARD_SIZE / 10;
     
-    int board_size = 300;
-    int cell_size = board_size / 10;
+    const int P1_X = 40;
+    const int P2_X = _width - BOARD_SIZE - 40;
     
-    int p_x = 50;
-    int p_y = 100;
-    
-    int e_x = _width - board_size - 50;
-    int e_y = 100;
-    
-    _p1_board = new BoardWidget(p_x, p_y, cell_size, 10, 10, false, [this](int r, int c) { this->on_board_click(r, c, true); });
-    _p2_board = new BoardWidget(e_x, e_y, cell_size, 10, 10, true, [this](int r, int c) { this->on_board_click(r, c, false); });
-    
-    _action_btn = new Button(50, _height - 60, 150, 40, "Forgat", [this]() {
-        if (_state == STATE_P1_PLACEMENT || _state == STATE_P2_PLACEMENT) {
+    _p1_board = new BoardWidget(P1_X, BOARD_Y, CELL, 10, 10, false,
+        [this](int r, int c) { this->on_board_click(r, c, true); });
+    _p2_board = new BoardWidget(P2_X, BOARD_Y, CELL, 10, 10, true,
+        [this](int r, int c) { this->on_board_click(r, c, false); });
+
+    // Gombok
+    _action_btn = new Button(P1_X, _height - 55, 130, 38, "Forgat", [this]() {
+        if (_state == STATE_P1_PLACEMENT || _state == STATE_P2_PLACEMENT)
             _horizontal_placement = !_horizontal_placement;
-        }
     });
-    
-    _start_bot_btn = new Button(_width / 2 - 100, _height / 2 - 40, 200, 50, "Jatek Bot Ellen", [this]() {
+    _start_bot_btn = new Button(_width/2 - 110, _height/2 - 55, 220, 48, "Jatek Bot Ellen", [this]() {
         this->start_game(false);
     });
-    _start_pvp_btn = new Button(_width / 2 - 100, _height / 2 + 30, 200, 50, "Jatek Ember Ellen", [this]() {
+    _start_pvp_btn = new Button(_width/2 - 110, _height/2 + 10, 220, 48, "Jatek Ember Ellen", [this]() {
         this->start_game(true);
     });
-    
-    _back_to_menu_btn = new Button(_width / 2 - 100, _height - 100, 200, 50, "Vissza a Fomenube", [this]() {
+    _back_to_menu_btn = new Button(_width/2 - 110, _height - 75, 220, 45, "Vissza a Fomenube", [this]() {
         _state = STATE_MAIN_MENU;
         _status_msg = "";
         setup_state_widgets();
     });
-    
-    _pass_turn_btn = new Button(_width / 2 - 100, _height / 2 + 50, 200, 50, "Tovabb", [this]() {
+    _pass_turn_btn = new Button(_width/2 - 110, _height/2 + 20, 220, 48, "Tovabb", [this]() {
         _state = _next_state;
         if (_state == STATE_P1_TURN) {
             _p1_board->set_hidden_ships(false);
@@ -54,23 +58,30 @@ JatekMester::JatekMester(int width, int height) : _width(width), _height(height)
             _p1_board->set_hidden_ships(true);
             _p2_board->set_hidden_ships(false);
         } else if (_state == STATE_P2_PLACEMENT) {
-            _p1_board->set_hidden_ships(true); // hide P1's ships while P2 places
+            _p1_board->set_hidden_ships(true);
             _p2_board->set_hidden_ships(false);
         }
         setup_state_widgets();
         update_shot_list();
     });
-    
-    _p1_label = new TextWidget(50, 70, "P1 flotta", 180, 180, 200);
-    _p2_label = new TextWidget(_width - 350, 70, "P2 flotta", 180, 180, 200);
-    _status_text = new TextWidget(50, 20, "", 255, 255, 0);
-    _dir_text = new TextWidget(220, _height - 50, "Irany: Vizszintes", 200, 200, 200);
-    _score_text = new TextWidget(_width / 2 - 100, _height - 40, "P1: 0 - P2: 0", 255, 255, 255);
-    _ships_left_text = new TextWidget(50, 40, "", 200, 255, 200);
-    
-    _shot_type_list = new List(_width / 2 - 75, _height - 220, 150, 150, {});
-    _shot_label = new TextWidget(_width / 2 - 75, _height - 240, "Loves tipus:", 200, 200, 200);
-    
+
+    // Szövegek – minden sornak külön Y, legalabb 22px közök
+    _status_text     = new TextWidget(10,            8,  "",           255, 255,   0);
+    _ships_left_text = new TextWidget(10,           35,  "",           160, 255, 160);
+    _p1_label        = new TextWidget(P1_X,         88,  "P1 flotta", 130, 170, 220);
+    _p2_label        = new TextWidget(P2_X,         88,  "P2 flotta", 130, 170, 220);
+    _score_text      = new TextWidget(_width/2-90,  88,  "P1: 0 | P2: 0", 255, 220, 100);
+    _dir_text        = new TextWidget(P1_X + 140,  _height - 50, "Irany: Vizszintes", 180, 180, 180);
+
+    // Shot-type lista – alul középen, 150px magas -> 3 sor × 50px
+    const int LIST_W = 160;
+    const int LIST_H = 150;
+    const int LIST_X = _width/2 - LIST_W/2;
+    const int LIST_Y = _height - LIST_H - 10;
+    _shot_type_list = new List(LIST_X, LIST_Y, LIST_W, LIST_H, {});
+    _shot_label     = new TextWidget(LIST_X, LIST_Y - 22, "Loves tipusa:", 200, 200, 200);
+
+    // Gyűjtsd össze az összes widget (az _all_widgets csak memóriakezelésre)
     _all_widgets.push_back(_p1_board);
     _all_widgets.push_back(_p2_board);
     _all_widgets.push_back(_action_btn);
