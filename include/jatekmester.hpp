@@ -10,6 +10,7 @@
 #include <string>
 
 enum GameState {
+    STATE_MAIN_MENU,
     STATE_PLACEMENT,
     STATE_PLAYER_TURN,
     STATE_ENEMY_TURN,
@@ -26,7 +27,13 @@ struct Ship {
 
 class JatekMester {
     int _width, _height;
-    std::vector<Widget*> _widgets;
+    
+    std::vector<Widget*> _menu_widgets;
+    std::vector<Widget*> _game_widgets;
+    std::vector<Widget*> _placement_widgets;
+    std::vector<Widget*> _all_widgets;
+    
+    Button* _start_btn;
     
     BoardWidget* _player_board;
     BoardWidget* _enemy_board;
@@ -36,6 +43,7 @@ class JatekMester {
     TextWidget* _enemy_label;
     TextWidget* _dir_text;
     TextWidget* _score_text;
+    TextWidget* _ships_left_text;
     List* _shot_type_list;
     TextWidget* _shot_label;
     
@@ -47,6 +55,12 @@ class JatekMester {
     
     std::vector<Ship> _player_ships;
     std::vector<Ship> _enemy_ships;
+    
+    int _cross_ammo;
+    int _carpet_ammo;
+    
+    void update_shot_list();
+    void update_ships_left_text();
     
     void on_player_board_click(int r, int c);
     void on_enemy_board_click(int r, int c);
