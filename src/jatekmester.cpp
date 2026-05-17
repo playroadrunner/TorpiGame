@@ -12,86 +12,109 @@ JatekMester::JatekMester(int width, int height) : _width(width), _height(height)
 
     // Grafikus rendszer inicializálása – NEM a main()-ben
     gout.open(_width, _height);
-    gout.load_font("assets/LiberationSans-Regular.ttf", 18);
+    gout.load_font("assets/LiberationSans-Regular.ttf", 16);
     gin.timer(40);
 
-    _state = STATE_MAIN_MENU;
+    _state   = STATE_MAIN_MENU;
     _pvp_mode = false;
+    _running  = true;
     _status_msg = "";
 
-    // ── Layout constants ───────────────────────────────────────────
-    // Header bar: y 0..50  (title / status)
-    // Sub-header: y 52..75 (labels, ships-left)
-    // Score bar:  y 76..99
-    // Board area: y 110..410  (300px boards)
-    // Bottom bar: y 420..600  (shot list, buttons)
+    // ── Layout (1000 × 650) ───────────────────────────────────────
+    //  y=0..24   : status sáv (sárga szöveg)
+    //  y=25..49  : hajók számlálója / irány szöveg
+    //  y=50..74  : tábla-feliratok + pontszám
+    //  y=80..430 : táblák (350×350 px)
+    //  y=440..640: shot-lista + gombok
 
-    const int BOARD_Y    = 110;
-    const int BOARD_SIZE = 300;
-    const int CELL       = BOARD_SIZE / 10;
-    
-    const int P1_X = 40;
-    const int P2_X = _width - BOARD_SIZE - 40;
-    
+    const int BOARD_SIZE = 350;
+    const int CELL       = BOARD_SIZE / 10;   // 35 px / cella
+    const int BOARD_Y    = 80;
+
+    const int P1_X = 30;
+    const int P2_X = _width - BOARD_SIZE - 30;   // 1000-350-30 = 620
+
+    // ── Táblák ────────────────────────────────────────────────────
     _p1_board = new BoardWidget(P1_X, BOARD_Y, CELL, 10, 10, false,
         [this](int r, int c) { this->on_board_click(r, c, true); });
     _p2_board = new BoardWidget(P2_X, BOARD_Y, CELL, 10, 10, true,
         [this](int r, int c) { this->on_board_click(r, c, false); });
 
-    // Gombok
-    _action_btn = new Button(P1_X, _height - 55, 130, 38, "Forgat", [this]() {
-        if (_state == STATE_P1_PLACEMENT || _state == STATE_P2_PLACEMENT)
-            _horizontal_placement = !_horizontal_placement;
-    });
-    _start_bot_btn = new Button(_width/2 - 110, _height/2 - 55, 220, 48, "Jatek Bot Ellen", [this]() {
-        this->start_game(false);
-    });
-    _start_pvp_btn = new Button(_width/2 - 110, _height/2 + 10, 220, 48, "Jatek Ember Ellen", [this]() {
-        this->start_game(true);
-    });
-    _back_to_menu_btn = new Button(_width/2 - 110, _height - 75, 220, 45, "Vissza a Fomenube", [this]() {
-        _state = STATE_MAIN_MENU;
-        _status_msg = "";
-        setup_state_widgets();
-    });
-    _pass_turn_btn = new Button(_width/2 - 110, _height/2 + 20, 220, 48, "Tovabb", [this]() {
-        _state = _next_state;
-        if (_state == STATE_P1_TURN) {
-            _p1_board->set_hidden_ships(false);
-            _p2_board->set_hidden_ships(true);
-        } else if (_state == STATE_P2_TURN) {
-            _p1_board->set_hidden_ships(true);
-            _p2_board->set_hidden_ships(false);
-        } else if (_state == STATE_P2_PLACEMENT) {
-            _p1_board->set_hidden_ships(true);
-            _p2_board->set_hidden_ships(false);
-        }
-        setup_state_widgets();
-        update_shot_list();
-    });
+    // ── Gombok ────────────────────────────────────────────────────
+    const int BTN_W = 220, BTN_H = 46;
+    const int CX    = _width / 2 - BTN_W / 2;   // vízszintes közép
 
-    // Szövegek – minden sornak külön Y, legalabb 22px közök
-    _status_text     = new TextWidget(10,            8,  "",           255, 255,   0);
-    _ships_left_text = new TextWidget(10,           35,  "",           160, 255, 160);
-    _p1_label        = new TextWidget(P1_X,         88,  "P1 flotta", 130, 170, 220);
-    _p2_label        = new TextWidget(P2_X,         88,  "P2 flotta", 130, 170, 220);
-    _score_text      = new TextWidget(_width/2-90,  88,  "P1: 0 | P2: 0", 255, 220, 100);
-    _dir_text        = new TextWidget(P1_X + 140,  _height - 50, "Irany: Vizszintes", 180, 180, 180);
+    _start_bot_btn = new Button(CX, _height/2 - 80, BTN_W, BTN_H, "Jatek Bot Ellen",
+        [this]() { start_game(false); });
 
-    // Shot-type lista – alul középen, 150px magas -> 3 sor × 50px
-    const int LIST_W = 160;
+    _start_pvp_btn = new Button(CX, _height/2 - 20, BTN_W, BTN_H, "Jatek Ember Ellen",
+        [this]() { start_game(true); });
+
+    _quit_btn = new Button(CX, _height/2 + 50, BTN_W, BTN_H, "Kilepes",
+        [this]() { _running = false; });
+
+    _action_btn = new Button(P1_X, _height - 50, 130, 36, "Forgat",
+        [this]() {
+            if (_state == STATE_P1_PLACEMENT || _state == STATE_P2_PLACEMENT)
+                _horizontal_placement = !_horizontal_placement;
+        });
+
+    _back_to_menu_btn = new Button(CX, _height - 65, BTN_W, BTN_H, "Vissza a Fomenube",
+        [this]() {
+            _state = STATE_MAIN_MENU;
+            _status_msg = "";
+            setup_state_widgets();
+        });
+
+    _pass_turn_btn = new Button(CX, _height/2 + 10, BTN_W, BTN_H, "Tovabb",
+        [this]() {
+            _state = _next_state;
+            if (_state == STATE_P1_TURN) {
+                _p1_board->set_hidden_ships(false);
+                _p2_board->set_hidden_ships(true);
+            } else if (_state == STATE_P2_TURN) {
+                _p1_board->set_hidden_ships(true);
+                _p2_board->set_hidden_ships(false);
+            } else if (_state == STATE_P2_PLACEMENT) {
+                _p1_board->set_hidden_ships(true);
+                _p2_board->set_hidden_ships(false);
+            }
+            setup_state_widgets();
+            update_shot_list();
+        });
+
+    // ── Szövegek – kizárólag egymástól legalább 26px-re lévő sorokba ──
+    //  sor 1 y=4  : status
+    //  sor 2 y=30 : hajók / irány
+    //  sor 3 y=56 : tábla feliratok + pontszám
+    const int TXT_ROW1 = 4;
+    const int TXT_ROW2 = 30;
+    const int TXT_ROW3 = 56;
+
+    _status_text     = new TextWidget(10,           TXT_ROW1, "",           255, 220,   0);
+    _ships_left_text = new TextWidget(10,           TXT_ROW2, "",           160, 255, 160);
+    _dir_text        = new TextWidget(P1_X + 140,  _height - 44, "Irany: Vizszintes", 180, 180, 180);
+
+    // Táblafeliratok – bal, közép, jobb, MIND ugyanazon sor3 szintjén
+    _p1_label   = new TextWidget(P1_X,           TXT_ROW3, "P1 flotta",    130, 170, 220);
+    _score_text = new TextWidget(_width/2 - 80,  TXT_ROW3, "P1: 0 | P2: 0", 255, 210,  80);
+    _p2_label   = new TextWidget(P2_X,           TXT_ROW3, "P2 flotta",    130, 170, 220);
+
+    // Shot-lista – alul középen, 150 px magas → 3 × 50 px
+    const int LIST_W = 170;
     const int LIST_H = 150;
     const int LIST_X = _width/2 - LIST_W/2;
-    const int LIST_Y = _height - LIST_H - 10;
+    const int LIST_Y = _height - LIST_H - 15;
     _shot_type_list = new List(LIST_X, LIST_Y, LIST_W, LIST_H, {});
-    _shot_label     = new TextWidget(LIST_X, LIST_Y - 22, "Loves tipusa:", 200, 200, 200);
+    _shot_label     = new TextWidget(LIST_X, LIST_Y - 24, "Loves tipusa:", 200, 200, 200);
 
-    // Gyűjtsd össze az összes widget (az _all_widgets csak memóriakezelésre)
+    // ── Memóriakezelő lista (minden widget ide kerül) ─────────────
     _all_widgets.push_back(_p1_board);
     _all_widgets.push_back(_p2_board);
     _all_widgets.push_back(_action_btn);
     _all_widgets.push_back(_start_bot_btn);
     _all_widgets.push_back(_start_pvp_btn);
+    _all_widgets.push_back(_quit_btn);
     _all_widgets.push_back(_back_to_menu_btn);
     _all_widgets.push_back(_pass_turn_btn);
     _all_widgets.push_back(_p1_label);
@@ -102,7 +125,7 @@ JatekMester::JatekMester(int width, int height) : _width(width), _height(height)
     _all_widgets.push_back(_ships_left_text);
     _all_widgets.push_back(_shot_type_list);
     _all_widgets.push_back(_shot_label);
-    
+
     setup_state_widgets();
 }
 
@@ -146,6 +169,7 @@ void JatekMester::setup_state_widgets() {
     if (_state == STATE_MAIN_MENU) {
         _menu_widgets.push_back(_start_bot_btn);
         _menu_widgets.push_back(_start_pvp_btn);
+        _menu_widgets.push_back(_quit_btn);
     } else if (_state == STATE_P1_PLACEMENT) {
         _placement_widgets.push_back(_p1_board);
         _placement_widgets.push_back(_action_btn);
@@ -167,13 +191,11 @@ void JatekMester::setup_state_widgets() {
         _game_widgets.push_back(_p1_label);
         _game_widgets.push_back(_p2_label);
         _game_widgets.push_back(_score_text);
+        _game_widgets.push_back(_back_to_menu_btn); // always available during game
         
         if (_state == STATE_P1_TURN || _state == STATE_P2_TURN) {
             _game_widgets.push_back(_shot_type_list);
             _game_widgets.push_back(_shot_label);
-        }
-        if (_state == STATE_GAME_OVER) {
-            _game_widgets.push_back(_back_to_menu_btn);
         }
     }
 }
@@ -433,7 +455,7 @@ void JatekMester::run() {
     int focus = -1;
     int enemy_delay = 0;
 
-    while (gin >> ev && ev.keycode != key_escape) {
+    while (_running && gin >> ev && ev.keycode != key_escape) {
         if (ev.type == ev_timer) {
             if (_state == STATE_P2_TURN && !_pvp_mode) {
                 enemy_delay++;

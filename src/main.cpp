@@ -1,7 +1,7 @@
 #include "jatekmester.hpp"
 
 int main() {
-    JatekMester jm(800, 600);
+    JatekMester jm(1000, 650);
     jm.run();
     return 0;
 }

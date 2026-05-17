@@ -37,6 +37,7 @@ class JatekMester {
     
     Button* _start_bot_btn;
     Button* _start_pvp_btn;
+    Button* _quit_btn;
     Button* _back_to_menu_btn;
     Button* _pass_turn_btn;
     
@@ -56,6 +57,7 @@ class JatekMester {
     GameState _next_state; // For pass turn
     std::string _status_msg;
     bool _pvp_mode;
+    bool _running;
     
     std::vector<int> _ships_to_place; // lengths of ships left to place
     bool _horizontal_placement;
