@@ -205,8 +205,8 @@ void JatekMester::setup_state_widgets() {
 }
 
 void JatekMester::update_shot_list() {
-    int cross  = (_state == STATE_P2_TURN) ? _p2_cross_ammo  : _p1_cross_ammo;
-    int carpet = (_state == STATE_P2_TURN) ? _p2_carpet_ammo : _p1_carpet_ammo;
+    int cross  = (_state == STATE_P2_TURN && _pvp_mode) ? _p2_cross_ammo  : _p1_cross_ammo;
+    int carpet = (_state == STATE_P2_TURN && _pvp_mode) ? _p2_carpet_ammo : _p1_carpet_ammo;
 
     std::vector<std::string> shots;
     shots.push_back("Normál lövés");
