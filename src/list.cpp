@@ -19,14 +19,15 @@ void List::draw() const {
         int idx = i + _scroll_offset;
         int iy = _y + i * _item_height;
         
+        // Sor teljes hátterét mindig töröljük (megakadályozza a régi számjegyek maradását)
+        gout << move_to(_x + 4, iy + 2) << color(45, 45, 45) << box(_size_x - 8, _item_height - 4);
+
         if (idx == _selected_index) {
             gout << move_to(_x + 4, iy + 4) << color(80, 80, 180) << box(_size_x - 8, _item_height - 8);
         }
-        
-        // Correct centering: draw_text draws from the top
+
         int text_h = gout.cascent() + gout.cdescent();
         int text_y = iy + (_item_height - text_h) / 2;
-        
         gout << move_to(_x + 15, text_y) << color(220, 220, 220) << text(_items[idx]);
     }
     

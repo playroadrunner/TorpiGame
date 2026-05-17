@@ -294,12 +294,12 @@ void JatekMester::on_board_click(int r, int c, bool is_p1_board) {
                 if (_pvp_mode) {
                     _state = STATE_PASS_TURN;
                     _next_state = STATE_P2_PLACEMENT;
-                    _status_msg = "A gepet at kell adni P2-nek. Kattints a tovabb gombra.";
+                    _status_msg = "A gepet át kell adni P2-nek. Kattints a tovább gombra.";
                     _ships_to_place = {4, 3, 3, 2, 2, 2, 1, 1, 1, 1};
                     update_ships_left_text();
                 } else {
                     _state = STATE_P1_TURN;
-                    _status_msg = "P1 jon! Kattints az ellenseg tablajara.";
+                    _status_msg = "P1 jön! Kattints az ellenség táblájára.";
                 }
                 setup_state_widgets();
             }
