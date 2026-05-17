@@ -41,7 +41,7 @@ JatekMester::JatekMester(int width, int height) : _width(width), _height(height)
         [this](int r, int c) { this->on_board_click(r, c, false); });
 
     // ── Gombok ────────────────────────────────────────────────────
-    const int BTN_W = 220, BTN_H = 46;
+    const int BTN_W = 280, BTN_H = 46;
     const int CX    = _width / 2 - BTN_W / 2;   // vízszintes közép
 
     _start_bot_btn = new Button(CX, _height/2 - 80, BTN_W, BTN_H, "Játék Bot Ellen",
@@ -53,13 +53,20 @@ JatekMester::JatekMester(int width, int height) : _width(width), _height(height)
     _quit_btn = new Button(CX, _height/2 + 50, BTN_W, BTN_H, "Kilépés",
         [this]() { _running = false; });
 
-    _action_btn = new Button(P1_X, _height - 50, 130, 36, "Forgat (J.klikk)",
+    _action_btn = new Button(P1_X, _height - 50, 130, 36, "Forgatás",
         [this]() {
             if (_state == STATE_P1_PLACEMENT || _state == STATE_P2_PLACEMENT)
                 _horizontal_placement = !_horizontal_placement;
         });
 
-    _back_to_menu_btn = new Button(CX, _height - 65, BTN_W, BTN_H, "Vissza a Főmenübe",
+    // Bottom layout: y=435 gomb, y=490 lista-felirat, y=510 lista
+    const int BACK_Y = 435;
+    const int LIST_W = 200;
+    const int LIST_H = 138;   // 3 × 46px
+    const int LIST_X = _width / 2 - LIST_W / 2;
+    const int LIST_Y = 512;
+
+    _back_to_menu_btn = new Button(CX, BACK_Y, BTN_W, BTN_H, "Vissza a Főmenübe",
         [this]() {
             _state = STATE_MAIN_MENU;
             _status_msg = "";
@@ -93,7 +100,7 @@ JatekMester::JatekMester(int width, int height) : _width(width), _height(height)
 
     _status_text     = new TextWidget(10,           TXT_ROW1, "",           255, 220,   0);
     _ships_left_text = new TextWidget(10,           TXT_ROW2, "",           160, 255, 160);
-    _dir_text        = new TextWidget(P1_X + 140,  _height - 44, "Irany: Vizszintes", 180, 180, 180);
+    _dir_text        = new TextWidget(P1_X + 140,  _height - 44, "Irány: Vízszintes", 180, 180, 180);
 
     // Táblafeliratok – bal, közép, jobb, MIND ugyanazon sor3 szintjén
     _p1_label   = new TextWidget(P1_X,           TXT_ROW3, "P1 flotta",    130, 170, 220);
@@ -101,12 +108,8 @@ JatekMester::JatekMester(int width, int height) : _width(width), _height(height)
     _p2_label   = new TextWidget(P2_X,           TXT_ROW3, "P2 flotta",    130, 170, 220);
 
     // Shot-lista – alul középen, 150 px magas → 3 × 50 px
-    const int LIST_W = 170;
-    const int LIST_H = 150;
-    const int LIST_X = _width/2 - LIST_W/2;
-    const int LIST_Y = _height - LIST_H - 15;
     _shot_type_list = new List(LIST_X, LIST_Y, LIST_W, LIST_H, {});
-    _shot_label     = new TextWidget(LIST_X, LIST_Y - 24, "Loves tipusa:", 200, 200, 200);
+    _shot_label     = new TextWidget(LIST_X, LIST_Y - 22, "Lövés típusa:", 200, 200, 200);
 
     // ── Memóriakezelő lista (minden widget ide kerül) ─────────────
     _all_widgets.push_back(_p1_board);
