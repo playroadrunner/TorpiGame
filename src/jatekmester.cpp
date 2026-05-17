@@ -564,8 +564,9 @@ void JatekMester::run() {
             _dir_text->set_text("Irány (Jobb klikk): " + dir);
         }
 
-        if (_state == STATE_P1_TURN || _state == STATE_P2_TURN || _state == STATE_GAME_OVER || _state == STATE_P2_TURN) {
+        if (_state == STATE_P1_TURN || _state == STATE_P2_TURN || _state == STATE_GAME_OVER) {
             update_score();
+            update_shot_list(); // Mindig az aktuális játékos ammóját mutatja
         }
 
         for (Widget * w : *active_widgets) {
