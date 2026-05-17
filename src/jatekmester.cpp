@@ -53,7 +53,9 @@ JatekMester::JatekMester(int width, int height) : _width(width), _height(height)
     _quit_btn = new Button(CX, _height/2, BTN_W, BTN_H, "Kilépés",
         [this]() { _running = false; });
 
-    _action_btn = new Button(P1_X, _height - 44, 160, 36, "Forgatás (J.klikk)",
+    // Forgatás gomb + irány szöveg: a P1 tábla alatt, középen
+    const int ACT_X = P1_X + 60;
+    _action_btn = new Button(ACT_X, _height - 50, 140, 36, "Forgatás",
         [this]() {
             if (_state == STATE_P1_PLACEMENT || _state == STATE_P2_PLACEMENT)
                 _horizontal_placement = !_horizontal_placement;
@@ -99,7 +101,7 @@ JatekMester::JatekMester(int width, int height) : _width(width), _height(height)
 
     _status_text     = new TextWidget(10,           TXT_ROW1, "",           255, 220,   0);
     _ships_left_text = new TextWidget(10,           TXT_ROW2, "",           160, 255, 160);
-    _dir_text        = new TextWidget(P1_X + 140,  _height - 44, "Irány: Vízszintes", 180, 180, 180);
+    _dir_text        = new TextWidget(ACT_X + 150, _height - 44, "Irány: Vízszintes", 180, 180, 180);
 
     // Táblafeliratok – bal, közép, jobb, MIND ugyanazon sor3 szintjén
     _p1_label   = new TextWidget(P1_X,           TXT_ROW3, "P1 flotta",    130, 170, 220);
