@@ -22,3 +22,4 @@ A projekt a követelményeknek megfelelően, logikusan felépített verzióköve
 1. **v0.1** - Meglévő Widget könyvtár alapjainak rögzítése.
 2. **v0.2** - A Torpedó alapvető logikájának, a GameMaster-nek és a BoardWidget-nek a megalkotása.
 3. **v0.3** - Az extra lövéstípusok hozzáadása kiválasztó widget segítségével.
+4. **v1.0** - Hibajavítások.
