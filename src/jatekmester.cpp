@@ -44,29 +44,29 @@ JatekMester::JatekMester(int width, int height) : _width(width), _height(height)
     const int BTN_W = 220, BTN_H = 46;
     const int CX    = _width / 2 - BTN_W / 2;   // vízszintes közép
 
-    _start_bot_btn = new Button(CX, _height/2 - 80, BTN_W, BTN_H, "Jatek Bot Ellen",
+    _start_bot_btn = new Button(CX, _height/2 - 80, BTN_W, BTN_H, "Játék Bot Ellen",
         [this]() { start_game(false); });
 
-    _start_pvp_btn = new Button(CX, _height/2 - 20, BTN_W, BTN_H, "Jatek Ember Ellen",
+    _start_pvp_btn = new Button(CX, _height/2 - 20, BTN_W, BTN_H, "Játék Ember Ellen",
         [this]() { start_game(true); });
 
-    _quit_btn = new Button(CX, _height/2 + 50, BTN_W, BTN_H, "Kilepes",
+    _quit_btn = new Button(CX, _height/2 + 50, BTN_W, BTN_H, "Kilépés",
         [this]() { _running = false; });
 
-    _action_btn = new Button(P1_X, _height - 50, 130, 36, "Forgat",
+    _action_btn = new Button(P1_X, _height - 50, 130, 36, "Forgat (J.klikk)",
         [this]() {
             if (_state == STATE_P1_PLACEMENT || _state == STATE_P2_PLACEMENT)
                 _horizontal_placement = !_horizontal_placement;
         });
 
-    _back_to_menu_btn = new Button(CX, _height - 65, BTN_W, BTN_H, "Vissza a Fomenube",
+    _back_to_menu_btn = new Button(CX, _height - 65, BTN_W, BTN_H, "Vissza a Főmenübe",
         [this]() {
             _state = STATE_MAIN_MENU;
             _status_msg = "";
             setup_state_widgets();
         });
 
-    _pass_turn_btn = new Button(CX, _height/2 + 10, BTN_W, BTN_H, "Tovabb",
+    _pass_turn_btn = new Button(CX, _height/2 + 10, BTN_W, BTN_H, "Tovább",
         [this]() {
             _state = _next_state;
             if (_state == STATE_P1_TURN) {
@@ -150,7 +150,7 @@ void JatekMester::start_game(bool pvp) {
     _ships_to_place = {4, 3, 3, 2, 2, 2, 1, 1, 1, 1};
     _horizontal_placement = true;
     _state = STATE_P1_PLACEMENT;
-    _status_msg = "P1: Helyezd el a hajoikat! Kattints a bal oldali tabladra.";
+    _status_msg = "P1: Helyezd el a hajóidat! Kattints a bal oldali tábládra.";
     
     if (!_pvp_mode) {
         place_enemy_ships();
@@ -205,26 +205,26 @@ void JatekMester::update_shot_list() {
     int cross = (_state == STATE_P2_TURN) ? _p2_cross_ammo : _p1_cross_ammo;
     int carpet = (_state == STATE_P2_TURN) ? _p2_carpet_ammo : _p1_carpet_ammo;
     
-    shots.push_back("Normal loves (vegtelen)");
-    shots.push_back("Kereszt loves (" + std::to_string(cross) + " db)");
-    shots.push_back("Szonyegbomba (" + std::to_string(carpet) + " db)");
+    shots.push_back("Normál lövés");
+    shots.push_back("Kereszt lövés (" + std::to_string(cross) + " db)");
+    shots.push_back("Szőnyegbomba (" + std::to_string(carpet) + " db)");
     _shot_type_list->set_items(shots);
 }
 
 void JatekMester::update_ships_left_text() {
     if (_ships_to_place.empty()) {
-        _ships_left_text->set_text("Minden hajo lehelyezve.");
+        _ships_left_text->set_text("Minden hajó lehelyezve.");
         return;
     }
     
-    std::string text = "Hajok: ";
+    std::string text = "Hátralevő hajók: ";
     std::map<int, int> counts;
     for (int l : _ships_to_place) counts[l]++;
     
     bool first = true;
     for (auto it = counts.rbegin(); it != counts.rend(); ++it) {
         if (!first) text += ", ";
-        text += std::to_string(it->first) + "-as: " + std::to_string(it->second) + "db";
+        text += std::to_string(it->first) + "-es: " + std::to_string(it->second) + "db";
         first = false;
     }
     _ships_left_text->set_text(text);
@@ -338,15 +338,16 @@ void JatekMester::on_board_click(int r, int c, bool is_p1_board) {
         
         update_sunk_ships(_p2_ships, _p2_board);
         if (check_win(_p2_ships)) {
-            _state = STATE_GAME_OVER; _status_msg = "P1 GYOZOTT!"; setup_state_widgets();
+            _state = STATE_GAME_OVER; _status_msg = "P1 győzött!"; setup_state_widgets();
         } else {
+            // Minden lövés (normál, kereszt, szőnyeg) körváltást okoz, ha nem volt találat
             if (any_hit) {
-                _status_msg = "Talalat! P1 jossz ujra.";
+                _status_msg = "Találat! P1 lő újra.";
             } else {
                 if (_pvp_mode) {
-                    _state = STATE_PASS_TURN; _next_state = STATE_P2_TURN; _status_msg = "Melle. Add at P2-nek."; setup_state_widgets();
+                    _state = STATE_PASS_TURN; _next_state = STATE_P2_TURN; _status_msg = "Mellé. Add át P2-nek."; setup_state_widgets();
                 } else {
-                    _state = STATE_P2_TURN; _status_msg = "Melle. A bot jon."; setup_state_widgets();
+                    _state = STATE_P2_TURN; _status_msg = "Mellé. A bot jön."; setup_state_widgets();
                 }
             }
         }
@@ -374,16 +375,18 @@ void JatekMester::on_board_click(int r, int c, bool is_p1_board) {
         
         update_sunk_ships(_p1_ships, _p1_board);
         if (check_win(_p1_ships)) {
-            _state = STATE_GAME_OVER; _status_msg = "P2 GYOZOTT!"; setup_state_widgets();
+            _state = STATE_GAME_OVER; _status_msg = "P2 győzött!"; setup_state_widgets();
         } else {
+            // Minden lövés körváltást okoz, ha nem volt találat
             if (any_hit) {
-                _status_msg = "Talalat! P2 jossz ujra.";
+                _status_msg = "Találat! P2 lő újra.";
             } else {
-                _state = STATE_PASS_TURN; _next_state = STATE_P1_TURN; _status_msg = "Melle. Add at P1-nek."; setup_state_widgets();
+                _state = STATE_PASS_TURN; _next_state = STATE_P1_TURN; _status_msg = "Mellé. Add át P1-nek."; setup_state_widgets();
             }
         }
     }
 }
+
 
 void JatekMester::update_sunk_ships(std::vector<Ship> &ships, BoardWidget *board) {
     for (auto &s : ships) {
@@ -495,9 +498,12 @@ void JatekMester::run() {
         _status_text->draw();
         
         if (_state == STATE_MAIN_MENU) {
-            gout << move_to(_width / 2 - 130, _height / 3 - 30) << color(255, 100, 100) << text("TORPEDO JATEK");
+            // Cím: felső középen
+            int title_x = _width / 2 - 90;
+            int title_y = _height / 3 - 80;
+            gout << move_to(title_x, title_y) << color(255, 100, 100) << text("Torpedó Játék");
         } else if (_state == STATE_PASS_TURN) {
-            gout << move_to(_width / 2 - 150, _height / 3) << color(255, 200, 100) << text("A gepet add at a masik jatekosnak!");
+            gout << move_to(_width / 2 - 180, _height / 3) << color(255, 200, 100) << text("Add át a gépet a másik játékosnak!");
         }
         
         if (_state == STATE_P1_PLACEMENT || _state == STATE_P2_PLACEMENT) {
