@@ -9,7 +9,12 @@ using namespace genv;
 
 JatekMester::JatekMester(int width, int height) : _width(width), _height(height) {
     std::srand(std::time(nullptr));
-    
+
+    // Grafikus rendszer inicializálása – NEM a main()-ben
+    gout.open(_width, _height);
+    gout.load_font("assets/LiberationSans-Regular.ttf", 18);
+    gin.timer(40);
+
     _state = STATE_MAIN_MENU;
     _pvp_mode = false;
     _status_msg = "";
