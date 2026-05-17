@@ -205,14 +205,18 @@ void JatekMester::setup_state_widgets() {
 }
 
 void JatekMester::update_shot_list() {
-    std::vector<std::string> shots;
-    int cross = (_state == STATE_P2_TURN) ? _p2_cross_ammo : _p1_cross_ammo;
+    int cross  = (_state == STATE_P2_TURN) ? _p2_cross_ammo  : _p1_cross_ammo;
     int carpet = (_state == STATE_P2_TURN) ? _p2_carpet_ammo : _p1_carpet_ammo;
-    
+
+    std::vector<std::string> shots;
     shots.push_back("Normál lövés");
-    shots.push_back("Kereszt lövés (" + std::to_string(cross) + " db)");
-    shots.push_back("Szőnyegbomba (" + std::to_string(carpet) + " db)");
+    shots.push_back("Kereszt lövés (" + std::to_string(cross)  + " db)");
+    shots.push_back("Szőnyegbomba ("  + std::to_string(carpet) + " db)");
+
+    // Kiválasztott sor megőrzése – set_items() ne állítsa vissza 0-ra
+    int prev = _shot_type_list->get_selected_index();
     _shot_type_list->set_items(shots);
+    if (prev > 0) _shot_type_list->set_selected(prev);
 }
 
 void JatekMester::update_ships_left_text() {

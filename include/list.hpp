@@ -16,6 +16,7 @@ public:
     virtual void handle(genv::event ev) override;
     
     int get_selected_index() const { return _selected_index; }
+    void set_selected(int idx) { if (idx >= 0 && idx < (int)_items.size()) _selected_index = idx; }
     std::string get_selected_item() const;
     void add_item(std::string item);
     void remove_item(int index);
