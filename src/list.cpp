@@ -78,6 +78,6 @@ void List::remove_item(int index) {
 
 void List::set_items(std::vector<std::string> items) {
     _items = items;
-    _selected_index = -1;
+    _selected_index = _items.empty() ? -1 : 0;  // always select first
     _scroll_offset = 0;
 }

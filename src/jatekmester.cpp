@@ -44,34 +44,33 @@ JatekMester::JatekMester(int width, int height) : _width(width), _height(height)
     const int BTN_W = 280, BTN_H = 46;
     const int CX    = _width / 2 - BTN_W / 2;   // vízszintes közép
 
-    _start_bot_btn = new Button(CX, _height/2 - 80, BTN_W, BTN_H, "Játék Bot Ellen",
+    _start_bot_btn = new Button(CX, _height/2 - 120, BTN_W, BTN_H, "Játék Bot Ellen",
         [this]() { start_game(false); });
 
-    _start_pvp_btn = new Button(CX, _height/2 - 20, BTN_W, BTN_H, "Játék Ember Ellen",
+    _start_pvp_btn = new Button(CX, _height/2 - 60, BTN_W, BTN_H, "Játék Ember Ellen",
         [this]() { start_game(true); });
 
-    _quit_btn = new Button(CX, _height/2 + 50, BTN_W, BTN_H, "Kilépés",
+    _quit_btn = new Button(CX, _height/2, BTN_W, BTN_H, "Kilépés",
         [this]() { _running = false; });
 
-    _action_btn = new Button(P1_X, _height - 50, 130, 36, "Forgatás",
+    _action_btn = new Button(P1_X, _height - 44, 160, 36, "Forgatás (J.klikk)",
         [this]() {
             if (_state == STATE_P1_PLACEMENT || _state == STATE_P2_PLACEMENT)
                 _horizontal_placement = !_horizontal_placement;
         });
 
-    // Bottom layout: y=435 gomb, y=490 lista-felirat, y=510 lista
-    const int BACK_Y = 435;
-    const int LIST_W = 200;
-    const int LIST_H = 138;   // 3 × 46px
-    const int LIST_X = _width / 2 - LIST_W / 2;
-    const int LIST_Y = 512;
-
-    _back_to_menu_btn = new Button(CX, BACK_Y, BTN_W, BTN_H, "Vissza a Főmenübe",
+    // "Vissza" gomb: kis gomb a jobb alsó sarokban
+    const int SMALL_W = 160, SMALL_H = 32;
+    _back_to_menu_btn = new Button(_width - SMALL_W - 8, _height - SMALL_H - 8, SMALL_W, SMALL_H, "← Főmenü",
         [this]() {
             _state = STATE_MAIN_MENU;
             _status_msg = "";
             setup_state_widgets();
         });
+    const int LIST_W = 200;
+    const int LIST_H = 138;
+    const int LIST_X = _width / 2 - LIST_W / 2;
+    const int LIST_Y = 490;
 
     _pass_turn_btn = new Button(CX, _height/2 + 10, BTN_W, BTN_H, "Tovább",
         [this]() {
@@ -320,8 +319,8 @@ void JatekMester::on_board_click(int r, int c, bool is_p1_board) {
     } else if (_state == STATE_P1_TURN && !is_p1_board) {
         int shot_type = _shot_type_list->get_selected_index();
         if (shot_type == -1) shot_type = 0; 
-        if (shot_type == 1 && _p1_cross_ammo <= 0) { _status_msg = "Nincs tobb Kereszt loves!"; return; }
-        if (shot_type == 2 && _p1_carpet_ammo <= 0) { _status_msg = "Nincs tobb Szonyegbomba!"; return; }
+        if (shot_type == 1 && _p1_cross_ammo <= 0) { _status_msg = "Nincs több keresztlövés!"; return; }
+        if (shot_type == 2 && _p1_carpet_ammo <= 0) { _status_msg = "Nincs több szőnyegbomba!"; return; }
         
         std::vector<std::pair<int, int>> targets;
         if (shot_type == 0) { targets.push_back({r, c}); }
@@ -342,23 +341,25 @@ void JatekMester::on_board_click(int r, int c, bool is_p1_board) {
         update_sunk_ships(_p2_ships, _p2_board);
         if (check_win(_p2_ships)) {
             _state = STATE_GAME_OVER; _status_msg = "P1 győzött!"; setup_state_widgets();
+        } else if (shot_type == 0 && any_hit) {
+            // Csak normál lövésnél maradhat a játékos találat esetén
+            _status_msg = "Találat! P1 lő újra.";
         } else {
-            // Minden lövés (normál, kereszt, szőnyeg) körváltást okoz, ha nem volt találat
-            if (any_hit) {
-                _status_msg = "Találat! P1 lő újra.";
+            // Különleges lövések és mellélövés esetén mindig körváltás
+            std::string hit_msg = any_hit ? "Találat! " : "Mellé. ";
+            if (_pvp_mode) {
+                _state = STATE_PASS_TURN; _next_state = STATE_P2_TURN;
+                _status_msg = hit_msg + "Add át P2-nek."; setup_state_widgets();
             } else {
-                if (_pvp_mode) {
-                    _state = STATE_PASS_TURN; _next_state = STATE_P2_TURN; _status_msg = "Mellé. Add át P2-nek."; setup_state_widgets();
-                } else {
-                    _state = STATE_P2_TURN; _status_msg = "Mellé. A bot jön."; setup_state_widgets();
-                }
+                _state = STATE_P2_TURN;
+                _status_msg = hit_msg + "A bot jön."; setup_state_widgets();
             }
         }
     } else if (_state == STATE_P2_TURN && is_p1_board) {
         int shot_type = _shot_type_list->get_selected_index();
         if (shot_type == -1) shot_type = 0; 
-        if (shot_type == 1 && _p2_cross_ammo <= 0) { _status_msg = "Nincs tobb Kereszt loves!"; return; }
-        if (shot_type == 2 && _p2_carpet_ammo <= 0) { _status_msg = "Nincs tobb Szonyegbomba!"; return; }
+        if (shot_type == 1 && _p2_cross_ammo <= 0) { _status_msg = "Nincs több keresztlövés!"; return; }
+        if (shot_type == 2 && _p2_carpet_ammo <= 0) { _status_msg = "Nincs több szőnyegbomba!"; return; }
         
         std::vector<std::pair<int, int>> targets;
         if (shot_type == 0) { targets.push_back({r, c}); }
@@ -379,13 +380,13 @@ void JatekMester::on_board_click(int r, int c, bool is_p1_board) {
         update_sunk_ships(_p1_ships, _p1_board);
         if (check_win(_p1_ships)) {
             _state = STATE_GAME_OVER; _status_msg = "P2 győzött!"; setup_state_widgets();
+        } else if (shot_type == 0 && any_hit) {
+            // Csak normál lövésnél maradhat a játékos találat esetén
+            _status_msg = "Találat! P2 lő újra.";
         } else {
-            // Minden lövés körváltást okoz, ha nem volt találat
-            if (any_hit) {
-                _status_msg = "Találat! P2 lő újra.";
-            } else {
-                _state = STATE_PASS_TURN; _next_state = STATE_P1_TURN; _status_msg = "Mellé. Add át P1-nek."; setup_state_widgets();
-            }
+            std::string hit_msg = any_hit ? "Találat! " : "Mellé. ";
+            _state = STATE_PASS_TURN; _next_state = STATE_P1_TURN;
+            _status_msg = hit_msg + "Add át P1-nek."; setup_state_widgets();
         }
     }
 }
