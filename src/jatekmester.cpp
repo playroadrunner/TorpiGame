@@ -421,31 +421,78 @@ bool JatekMester::check_win(const std::vector<Ship> &ships) const {
 }
 
 void JatekMester::bot_shoot() {
-    bool shot = false;
-    while (!shot) {
-        int r = std::rand() % 10;
-        int c = std::rand() % 10;
-        CellState state = _p1_board->get_cell(r, c);
-        
-        if (state == EMPTY || state == SHIP) {
-            if (state == SHIP) {
-                _p1_board->set_cell(r, c, HIT);
-                update_sunk_ships(_p1_ships, _p1_board);
-                if (check_win(_p1_ships)) {
-                    _state = STATE_GAME_OVER;
-                    _status_msg = "BOT GYOZOTT!";
-                    setup_state_widgets();
-                }
-            } else {
-                _p1_board->set_cell(r, c, MISS);
-                if (_state != STATE_GAME_OVER) {
-                    _state = STATE_P1_TURN;
-                    _status_msg = "Te jossz! Kattints az ellenseg tablajara.";
-                    setup_state_widgets();
-                }
-            }
-            shot = true;
+    // Bot véletlenszerűen választ lövéstípust, ha van még készlete
+    // 20% eséllyel Keresztlövés, 15% eséllyel Szőnyegbomba (ha van)
+    int shot_type = 0;
+    int roll = std::rand() % 100;
+    if (roll < 15 && _p2_carpet_ammo > 0) {
+        shot_type = 2; // Szőnyegbomba
+    } else if (roll < 35 && _p2_cross_ammo > 0) {
+        shot_type = 1; // Keresztlövés
+    }
+
+    int r = std::rand() % 10;
+    int c = std::rand() % 10;
+
+    // Biztosítsuk, hogy a normál lövés szabad mezőre essen
+    if (shot_type == 0) {
+        int tries = 0;
+        while (tries < 100) {
+            CellState st = _p1_board->get_cell(r, c);
+            if (st == EMPTY || st == SHIP) break;
+            r = std::rand() % 10;
+            c = std::rand() % 10;
+            ++tries;
         }
+    }
+
+    std::vector<std::pair<int, int>> targets;
+    std::string shot_name;
+    if (shot_type == 0) {
+        targets.push_back({r, c});
+        shot_name = "Normál lövés";
+    } else if (shot_type == 1) {
+        _p2_cross_ammo--;
+        shot_name = "Keresztlövés";
+        for (int i = 0; i < 10; ++i) {
+            targets.push_back({r, i});
+            targets.push_back({i, c});
+        }
+    } else {
+        _p2_carpet_ammo--;
+        shot_name = "Szőnyegbomba";
+        for (int i = -1; i <= 1; ++i)
+            for (int j = -1; j <= 1; ++j)
+                targets.push_back({r + i, c + j});
+    }
+
+    bool any_hit = false;
+    for (auto p : targets) {
+        int tr = p.first; int tc = p.second;
+        CellState st = _p1_board->get_cell(tr, tc);
+        if (st == EMPTY || st == SHIP) {
+            if (st == SHIP) { _p1_board->set_cell(tr, tc, HIT); any_hit = true; }
+            else { _p1_board->set_cell(tr, tc, MISS); }
+        }
+    }
+
+    update_sunk_ships(_p1_ships, _p1_board);
+    update_shot_list(); // frissíti a lőszer számlálót
+
+    if (check_win(_p1_ships)) {
+        _state = STATE_GAME_OVER;
+        _status_msg = "A bot győzött! (" + shot_name + ")";
+        setup_state_widgets();
+    } else if (shot_type == 0 && any_hit) {
+        // Normál találatnál a bot újra lő
+        _status_msg = "Bot talált normál lövéssel! Újra lő...";
+        // Ne legyen körváltás, marad STATE_P2_TURN
+    } else {
+        // Különleges lövések és mellé esetén körváltás
+        std::string hit_msg = any_hit ? "Bot talált! (" + shot_name + ") " : "Bot mellé (" + shot_name + "). ";
+        _state = STATE_P1_TURN;
+        _status_msg = hit_msg + "Te jössz!";
+        setup_state_widgets();
     }
 }
 
@@ -511,8 +558,8 @@ void JatekMester::run() {
         }
         
         if (_state == STATE_P1_PLACEMENT || _state == STATE_P2_PLACEMENT) {
-            std::string dir = _horizontal_placement ? "Vizszintes" : "Fuggoleges";
-            _dir_text->set_text("Irany (Jobb klikk): " + dir);
+            std::string dir = _horizontal_placement ? "Vízszintes" : "Függőleges";
+            _dir_text->set_text("Irány (Jobb klikk): " + dir);
         }
 
         if (_state == STATE_P1_TURN || _state == STATE_P2_TURN || _state == STATE_GAME_OVER || _state == STATE_P2_TURN) {
